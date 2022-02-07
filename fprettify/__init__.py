@@ -1992,7 +1992,7 @@ def run(argv=sys.argv):  # pragma: no cover
         parser.add_argument("--disable-whitespace", action='store_true', default=False, help="don't impose whitespace formatting")
         parser.add_argument("--enable-replacements", action='store_true', default=False, help="replace relational operators (e.g. '.lt.' <--> '<')")
         parser.add_argument("--c-relations", action='store_true', default=False, help="C-style relational operators ('<', '<=', ...)")
-        parser.add_argument("--case", nargs=4, default=[0,0,0,0], type=int, help="Enable letter case formatting of intrinsics by specifying which of "
+        parser.add_argument("--case", nargs=4, default=[1,1,1,1], type=int, help="Enable letter case formatting of intrinsics by specifying which of "
                             "keywords, procedures/modules, operators and constants (in this order) should be lowercased or uppercased - "
                             "   0: do nothing"
                             " | 1: lowercase"
