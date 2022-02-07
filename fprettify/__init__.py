@@ -196,7 +196,7 @@ FYPP_ENDMUTE_RE = re.compile(SOL_STR + r"#:ENDMUTE", RE_FLAGS)
 PRIVATE_RE = re.compile(SOL_STR + r"PRIVATE\s*::", RE_FLAGS)
 PUBLIC_RE = re.compile(SOL_STR + r"PUBLIC\s*::", RE_FLAGS)
 
-END_RE = re.compile(SOL_STR + r"(END)\s*(IF|DO|SELECT|ASSOCIATE|BLOCK|SUBROUTINE|FUNCTION|MODULE|SUBMODULE|TYPE|PROGRAM|INTERFACE|ENUM|WHERE|FORALL)", RE_FLAGS)
+END_RE = re.compile(SOL_STR + r"(END)\s*(SELECT|ASSOCIATE|BLOCK|FUNCTION|MODULE|SUBMODULE|TYPE|PROGRAM|INTERFACE|ENUM|WHERE|FORALL)", RE_FLAGS)
 
 # intrinsic statements with parenthesis notation that are not functions
 INTR_STMTS_PAR = (r"(ALLOCATE|DEALLOCATE|"
@@ -1150,7 +1150,7 @@ def add_whitespace_charwise(line, spacey, scope_parser, format_decl, filename, l
                                     r"|[\w\*/=\+\-:])\s*$"),
                                    line[:pos], RE_FLAGS) and
                      not EMPTY_RE.search(line[:pos])) or
-                        re.search(SOL_STR + r"(\w+\s*:)?(ELSE)?\s*IF\s*$",
+                      re.search(SOL_STR + r"(\w+\s*:)?(ELSE)?\s*IF\s*$",
                                   line[:pos], RE_FLAGS) or
                         re.search(SOL_STR + r"(\w+\s*:)?\s*DO\s+WHILE\s*$",
                                   line[:pos], RE_FLAGS) or
@@ -1168,6 +1168,10 @@ def add_whitespace_charwise(line, spacey, scope_parser, format_decl, filename, l
                                   line[:pos], RE_FLAGS)):
                     sep1 = 1 * spacey[8]
 
+                # always add separating whitespace after IF
+                if (re.search(SOL_STR + r"(\w+\s*:)?(ELSE)?\s*IF\s*$",
+                                  line[:pos], RE_FLAGS)):
+                    sep1 = 1 * 1
             # format closing delimiters
             else:
                 if level > 0:
