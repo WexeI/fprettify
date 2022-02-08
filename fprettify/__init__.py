@@ -196,7 +196,8 @@ FYPP_ENDMUTE_RE = re.compile(SOL_STR + r"#:ENDMUTE", RE_FLAGS)
 PRIVATE_RE = re.compile(SOL_STR + r"PRIVATE\s*::", RE_FLAGS)
 PUBLIC_RE = re.compile(SOL_STR + r"PUBLIC\s*::", RE_FLAGS)
 
-END_RE = re.compile(SOL_STR + r"(END)\s*(SELECT|ASSOCIATE|BLOCK|FUNCTION|MODULE|SUBMODULE|TYPE|PROGRAM|INTERFACE|ENUM|WHERE|FORALL)", RE_FLAGS)
+END_RE = re.compile(SOL_STR + r"(END)\s*(IF|DO|SELECT|ASSOCIATE|BLOCK|SUBROUTINE|FUNCTION|MODULE|SUBMODULE|TYPE|PROGRAM|INTERFACE|ENUM|WHERE|FORALL)", RE_FLAGS)
+END_IF_DO_SUB = re.compile(SOL_STR + r"(END)\s*(IF|DO|SUBROUTINE)", RE_FLAGS)
 
 # intrinsic statements with parenthesis notation that are not functions
 INTR_STMTS_PAR = (r"(ALLOCATE|DEALLOCATE|"
@@ -1150,7 +1151,7 @@ def add_whitespace_charwise(line, spacey, scope_parser, format_decl, filename, l
                                     r"|[\w\*/=\+\-:])\s*$"),
                                    line[:pos], RE_FLAGS) and
                      not EMPTY_RE.search(line[:pos])) or
-                      re.search(SOL_STR + r"(\w+\s*:)?(ELSE)?\s*IF\s*$",
+                        re.search(SOL_STR + r"(\w+\s*:)?(ELSE)?\s*IF\s*$",
                                   line[:pos], RE_FLAGS) or
                         re.search(SOL_STR + r"(\w+\s*:)?\s*DO\s+WHILE\s*$",
                                   line[:pos], RE_FLAGS) or
@@ -1263,6 +1264,13 @@ def add_whitespace_charwise(line, spacey, scope_parser, format_decl, filename, l
                 is_end = True
     if is_end:
         line_ftd = END_RE.sub(r'\1' + ' '*spacey[8] + r'\2', line_ftd)
+
+    if END_IF_DO_SUB.search(line_ftd):
+        for endre in scope_parser['end']:
+            if endre and endre.search(line_ftd):
+                is_end = True
+    if is_end:
+        line_ftd = END_IF_DO_SUB.sub(r'\1' + ' '*1 + r'\2', line_ftd)
 
     if level != 0:
         log_message('unpaired bracket delimiters', "info", filename, line_nr)
