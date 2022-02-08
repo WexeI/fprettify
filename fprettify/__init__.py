@@ -197,7 +197,7 @@ PRIVATE_RE = re.compile(SOL_STR + r"PRIVATE\s*::", RE_FLAGS)
 PUBLIC_RE = re.compile(SOL_STR + r"PUBLIC\s*::", RE_FLAGS)
 
 END_RE = re.compile(SOL_STR + r"(END)\s*(IF|DO|SELECT|ASSOCIATE|BLOCK|SUBROUTINE|FUNCTION|MODULE|SUBMODULE|TYPE|PROGRAM|INTERFACE|ENUM|WHERE|FORALL)", RE_FLAGS)
-END_IF_DO_SUB = re.compile(SOL_STR + r"(END)\s*(IF|DO|SUBROUTINE)", RE_FLAGS)
+END_SPACE = re.compile(SOL_STR + r"(END)\s*(IF|DO|SELECT|SUBROUTINE|MODULE)", RE_FLAGS)
 
 # intrinsic statements with parenthesis notation that are not functions
 INTR_STMTS_PAR = (r"(ALLOCATE|DEALLOCATE|"
@@ -1169,8 +1169,14 @@ def add_whitespace_charwise(line, spacey, scope_parser, format_decl, filename, l
                                   line[:pos], RE_FLAGS)):
                     sep1 = 1 * spacey[8]
 
-                # always add separating whitespace after IF
-                if (re.search(SOL_STR + r"(\w+\s*:)?(ELSE)?\s*IF\s*$",
+                # always add separating whitespace after IF and DO+WHILE
+                if (
+                (not re.search((r"(" + DEL_OPEN_STR +
+                                    r"|[\w\*/=\+\-:])\s*$"),
+                                   line[:pos], RE_FLAGS)) or
+                        re.search(SOL_STR + r"(\w+\s*:)?(ELSE)?\s*IF\s*$",
+                                  line[:pos], RE_FLAGS) or
+                        re.search(SOL_STR + r"(\w+\s*:)?\s*DO\s+WHILE\s*$",
                                   line[:pos], RE_FLAGS)):
                     sep1 = 1 * 1
             # format closing delimiters
@@ -1265,12 +1271,12 @@ def add_whitespace_charwise(line, spacey, scope_parser, format_decl, filename, l
     if is_end:
         line_ftd = END_RE.sub(r'\1' + ' '*spacey[8] + r'\2', line_ftd)
 
-    if END_IF_DO_SUB.search(line_ftd):
+    if END_SPACE.search(line_ftd):
         for endre in scope_parser['end']:
             if endre and endre.search(line_ftd):
                 is_end = True
     if is_end:
-        line_ftd = END_IF_DO_SUB.sub(r'\1' + ' '*1 + r'\2', line_ftd)
+        line_ftd = END_SPACE.sub(r'\1' + ' '*1 + r'\2', line_ftd)
 
     if level != 0:
         log_message('unpaired bracket delimiters', "info", filename, line_nr)
@@ -1428,7 +1434,7 @@ def reformat_inplace(filename, stdout=False, diffonly=False, **kwargs):  # pragm
                 outfile = io.open(filename, 'w', encoding='utf-8')
                 outfile.write(newfile.getvalue())
 
-def reformat_ffile(infile, outfile, impose_indent=True, indent_size=3, strict_indent=False, impose_whitespace=True,
+def reformat_ffile(infile, outfile, empty_lines=False, impose_indent=True, indent_size=3, strict_indent=False, impose_whitespace=True,
                    case_dict={},
                    impose_replacements=False, cstyle=False, whitespace=2, whitespace_dict={}, llength=132,
                    strip_comments=False, format_decl=False, orig_filename=None, indent_fypp=True, indent_mod=True):
@@ -1451,7 +1457,7 @@ def reformat_ffile(infile, outfile, impose_indent=True, indent_size=3, strict_in
         _impose_indent = False
 
         newfile = io.StringIO()
-        reformat_ffile_combined(oldfile, newfile, _impose_indent, indent_size, strict_indent, impose_whitespace,
+        reformat_ffile_combined(oldfile, newfile, empty_lines, _impose_indent, indent_size, strict_indent, impose_whitespace,
                                 case_dict,
                                 impose_replacements, cstyle, whitespace, whitespace_dict, llength,
                                 strip_comments, format_decl, orig_filename, indent_fypp, indent_mod)
@@ -1464,7 +1470,7 @@ def reformat_ffile(infile, outfile, impose_indent=True, indent_size=3, strict_in
         _impose_replacements = False
 
         newfile = io.StringIO()
-        reformat_ffile_combined(oldfile, newfile, impose_indent, indent_size, strict_indent, _impose_whitespace,
+        reformat_ffile_combined(oldfile, newfile, empty_lines, impose_indent, indent_size, strict_indent, _impose_whitespace,
                                 case_dict,
                                 _impose_replacements, cstyle, whitespace, whitespace_dict, llength,
                                 strip_comments, format_decl, orig_filename, indent_fypp, indent_mod)
@@ -1473,7 +1479,7 @@ def reformat_ffile(infile, outfile, impose_indent=True, indent_size=3, strict_in
     outfile.write(newfile.getvalue())
 
 
-def reformat_ffile_combined(infile, outfile, impose_indent=True, indent_size=3, strict_indent=False, impose_whitespace=True,
+def reformat_ffile_combined(infile, outfile, empty_lines=False, impose_indent=True, indent_size=3, strict_indent=False, impose_whitespace=True,
                             case_dict={},
                             impose_replacements=False, cstyle=False, whitespace=2, whitespace_dict={}, llength=132,
                             strip_comments=False, format_decl=False, orig_filename=None, indent_fypp=True, indent_mod=True):
@@ -1620,7 +1626,7 @@ def reformat_ffile_combined(infile, outfile, impose_indent=True, indent_size=3, 
 
         # rm subsequent blank lines
         skip_blank = EMPTY_RE.search(
-            f_line) and not any(comments) and not is_omp_conditional and not label
+            f_line) and not any(comments) and not is_omp_conditional and not label and empty_lines
 
 
 def format_comments(lines, comments, strip_comments):
@@ -2001,6 +2007,7 @@ def run(argv=sys.argv):  # pragma: no cover
         parser.add_argument("--strict-indent", action='store_true', default=False, help="strictly impose indentation even for nested loops")
         parser.add_argument("--enable-decl", action="store_true", default=False, help="enable whitespace formatting of declarations ('::' operator).")
         parser.add_argument("--disable-indent", action='store_true', default=False, help="don't impose indentation")
+        parser.add_argument("--enable-empty-lines", action='store_true', default=False, help="don't delete empty lines")
         parser.add_argument("--disable-whitespace", action='store_true', default=False, help="don't impose whitespace formatting")
         parser.add_argument("--enable-replacements", action='store_true', default=False, help="replace relational operators (e.g. '.lt.' <--> '<')")
         parser.add_argument("--c-relations", action='store_true', default=False, help="C-style relational operators ('<', '<=', ...)")
@@ -2135,6 +2142,7 @@ def run(argv=sys.argv):  # pragma: no cover
                 reformat_inplace(filename,
                                  stdout=stdout,
                                  diffonly=diffonly,
+                                 empty_lines=not file_args.enable_empty_lines,
                                  impose_indent=not file_args.disable_indent,
                                  indent_size=file_args.indent,
                                  strict_indent=file_args.strict_indent,
